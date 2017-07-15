@@ -30,8 +30,11 @@ public class MainActivity extends AppCompatActivity {
     // intent filter for broadcast receiver
     IntentFilter filter;
     // dummy value for auto-wifi connection test
-    String dbSSID = "Amage";
-    final String dbPassword = "amagenepal9";
+
+    String myNetworkName = "";
+    String dbSSID = "Bibek";
+    final String dbPassword = "Bib9841445379";
+
 
     @Override
     protected void onDestroy() {
@@ -111,40 +114,50 @@ public class MainActivity extends AppCompatActivity {
 
                         Log.d(TAG, "onCreate: check networkID :" + scanList.get(i).SSID.toString());
                         Log.d(TAG, "onCreate: password : " + dbPassword);
-                        dbSSID = scanList.get(i).SSID.toString();
+//                        dbSSID = scanList.get(i).SSID.toString();
+                        myNetworkName = scanList.get(i).SSID.toString();
                         Log.d(TAG, "onReceive: "+ dbSSID);
+
                     }
+
                 }
                 // add the network ID's to textview
                 textViewWifiResults.setText(stringBuilder);
+
+
+                conf.SSID = "\"" + myNetworkName + "\"";
+                Log.d(TAG, "getWifiNetworksList: conf" + conf.SSID.toString());
+                conf.preSharedKey = "\""+ dbPassword +"\"";
+                wifiManager.addNetwork(conf);
+
+                Log.d(TAG, "connectToWifi: conf.ssid"+ conf.SSID.toString());
+                // disconnect previously connected wifi ,and connect to amage
+                if(conf.SSID != null && conf.SSID.equals("\"" + dbSSID + "\"")) {
+
+                    Boolean disconnect = wifiManager.disconnect();
+                    Log.d(TAG, "getWifiNetworksList: disconnect :"+ disconnect );
+
+                    Boolean enableNetwork = wifiManager.enableNetwork(conf.networkId, true);
+                    Log.d(TAG, "getWifiNetworksList: enableNetwork :"+enableNetwork);
+
+                    Boolean reconnect = wifiManager.reconnect();
+                    Log.d(TAG, "getWifiNetworksList: "+ reconnect);
+
+                }else{
+                    Log.d(TAG, "getWifiNetworksList: conf null or not equal to dbSSID");
+                    Toast.makeText(getApplicationContext(),
+                            "required network not found", Toast.LENGTH_LONG).show();
+                }
+
+
 
             }
         };
         registerReceiver(receiver,filter);
         wifiManager.startScan();
 
-        Log.d(TAG, "getWifiNetworksList: dbSSID" + dbSSID);
-        conf.SSID = "\"" + dbSSID + "\"";
-        conf.preSharedKey = "\""+ dbPassword +"\"";
-        wifiManager.addNetwork(conf);
 
-        Log.d(TAG, "connectToWifi: "+ conf.SSID);
-        // disconnect previously connected wifi ,and connect to amage
-        if(conf.SSID != null && conf.SSID.equals("\"" + dbSSID + "\"")) {
 
-            Boolean disconnect = wifiManager.disconnect();
-            Log.d(TAG, "getWifiNetworksList: disconnect :"+ disconnect );
-
-            Boolean enableNetwork = wifiManager.enableNetwork(conf.networkId, true);
-            Log.d(TAG, "getWifiNetworksList: enableNetwork :"+enableNetwork);
-
-            Boolean reconnect = wifiManager.reconnect();
-            Log.d(TAG, "getWifiNetworksList: "+ reconnect);
-
-        }else{
-            Toast.makeText(getApplicationContext(),
-                    "required network not found", Toast.LENGTH_LONG).show();
-        }
     }
 
 }
