@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">ChitoooWifi</string>
+    <string name="string_btnScan">Scan for available wifi</string>
+    <string name="string_btnStopScan">Stop Scan</string>
 </resources>
