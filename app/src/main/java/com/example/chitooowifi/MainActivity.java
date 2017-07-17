@@ -41,7 +41,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     String myNetworkName = "" ;
     final String dbSSID = "Amage";
     final String dbPassword = "amagenepal9";
+//    final String dbSSID = "ideaAction";
+//    final String dbPassword = "idea1234";
 
+    private boolean firstTimeDisconnect = true;
+    private boolean firstTimeReconnect = true;
 
     @Override
     protected void onDestroy() {
@@ -80,16 +84,19 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         initView();
 
     }
+    private void registerReceiver(){
+        // dynamic registration of broadcast receiver for WifiManager
+        filter = new IntentFilter();
+        filter.addAction(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION);
+    }
 
 
     private void getWifiNetworksList(){
 
         final WifiConfiguration conf = new WifiConfiguration();
 
+        registerReceiver();
         Log.d(TAG, "getWifiNetworksList: ");
-        // dynamic registration of broadcast receiver for WifiManager
-        filter = new IntentFilter();
-        filter.addAction(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION);
         // getting instance of wifi manager
         wifiManager = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
 
@@ -178,46 +185,54 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
                 if(conf.SSID != null && conf.SSID.equals("\"" + dbSSID + "\"") ) {
 
-//                    Boolean disconnect = wifiManager.disconnect();
-//                    Log.d(TAG, "getWifiNetworksList: disconnect :"+ disconnect );
-//                    Log.d(TAG, "onReceive: network id : " + conf.networkId);
+                    if(firstTimeDisconnect) {
+                        firstTimeDisconnect = false;
+                        Boolean disconnect = wifiManager.disconnect();
+                        Log.d(TAG, "getWifiNetworksList: disconnect :"+ disconnect );
+
+                    }
+                    Log.d(TAG, "onReceive: network id : " + conf.networkId);
                     Boolean enableNetwork = wifiManager.enableNetwork(conf.networkId, true);
                     Log.d(TAG, "getWifiNetworksList: enableNetwork :"+enableNetwork);
 
                     Log.d(TAG, "onReceive: wifi state : " + wifiManager.getWifiState());
-                    // if networkID != -1 , it is success .it will return true
+//                     if networkID != -1 , it is success .it will return true
 
-//                    Boolean reconnect = wifiManager.reconnect();
-//                    Log.d(TAG, "getWifiNetworksList: "+ reconnect);
+                   if(firstTimeReconnect) {
+                       firstTimeReconnect = false;
+                       Boolean reconnect = wifiManager.reconnect();
+                       Log.d(TAG, "getWifiNetworksList: " + reconnect);
+                   }
 
-                }else{
-                    Log.d(TAG, "getWifiNetworksList: conf null or not equal to dbSSID");
-                    Toast.makeText(getApplicationContext(),
-                            "required network not found", Toast.LENGTH_LONG).show();
                 }
 
             }
         };
         registerReceiver(receiver,filter);
-
         wifiManager.startScan();
     }
 
     private void stopScan(){
 
-        WifiInfo wifiInfo = wifiManager.getConnectionInfo();
-        Log.d(TAG, "getWifiNetworksList: wifi info network id" + wifiInfo.getNetworkId());
-        Log.d(TAG, "getWifiNetworksList: wifi state : "+ wifiManager.getWifiState());
-        Log.d(TAG, "getWifiNetworksList: wifi ssid :"+wifiInfo.getSSID());
+        if(receiver!=null) {
+            WifiInfo wifiInfo = wifiManager.getConnectionInfo();
+            Log.d(TAG, "getWifiNetworksList: wifi info network id" + wifiInfo.getNetworkId());
+            Log.d(TAG, "getWifiNetworksList: wifi state : " + wifiManager.getWifiState());
+            Log.d(TAG, "getWifiNetworksList: wifi ssid :" + wifiInfo.getSSID());
 
-        // unregister receiver after a connection is established
-        if(wifiInfo!=null && wifiInfo.getSSID().equals("\"" + dbSSID + "\"")){
-            Log.d(TAG, "getWifiNetworksList: wifi Info ssid equals to Amage");
-            unregisterReceiver(receiver);
+            // unregister receiver after a connection is established
+            if (wifiInfo != null && wifiInfo.getSSID().equals("\"" + dbSSID + "\"")) {
+                Log.d(TAG, "getWifiNetworksList: wifi Info ssid equals to Amage");
+                unregisterReceiver(receiver);
+            } else {
+                Log.d(TAG, "getWifiNetworksList: condition not met");
+                Log.d(TAG, "getWifiNetworksList: ssid : " + wifiInfo.getSSID());
+                Log.d(TAG, "getWifiNetworksList: dbssid : " + dbSSID);
+            }
         }else{
-            Log.d(TAG, "getWifiNetworksList: condition not met");
-            Log.d(TAG, "getWifiNetworksList: ssid : " + wifiInfo.getSSID());
-            Log.d(TAG, "getWifiNetworksList: dbssid : "+ dbSSID);
+                Log.d(TAG, "stopScan: cannot unregister,receiver is not registered");
+                Toast.makeText(getApplicationContext(),
+                    "scan not started", Toast.LENGTH_LONG).show();
         }
     }
 
