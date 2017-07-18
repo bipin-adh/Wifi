@@ -158,7 +158,7 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onReceive(Context context, Intent intent) {
 
-            Log.d(TAG, "onReceive: ");
+            Log.d(TAG, "onReceive:");
             displaySSIDList();
             addWifiConfiguration();
             connectToSSID();
