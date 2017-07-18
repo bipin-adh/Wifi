@@ -167,7 +167,7 @@ public class MainActivity extends AppCompatActivity {
 
         private void displaySSIDList() {
 
-//            Log.d(TAG, "displaySSIDList: ");
+            Log.d(TAG, "displaySSIDList: ");
             // to append the values to textview
             stringBuilder = new StringBuilder();
             // get the list of available wifi networks
