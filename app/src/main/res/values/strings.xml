@@ -2,4 +2,7 @@
     <string name="app_name">ChitoooWifi</string>
     <string name="string_btnScan">Scan for available wifi</string>
     <string name="string_btnStopScan">Stop Scan</string>
+    <string name="title_location_permission">title</string>
+    <string name="text_location_permission">message</string>
+    <string name="ok">OK</string>
 </resources>
