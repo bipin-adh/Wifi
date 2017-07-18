@@ -1,12 +1,15 @@
 package com.example.chitooowifi;
 
+import android.Manifest;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
@@ -17,7 +20,7 @@ import java.util.List;
 
 import static android.content.ContentValues.TAG;
 
-public class MainActivity extends AppCompatActivity  {
+public class MainActivity extends AppCompatActivity {
 
     StringBuilder stringBuilder = new StringBuilder();
     // for displaying available wifi SSID results
@@ -29,10 +32,11 @@ public class MainActivity extends AppCompatActivity  {
 
     // intent filter for broadcast receiver
     IntentFilter filter;
+
     // dummy value for auto-wifi connection test
-    String myNetworkName = "" ;
-    final String dbSSID = "Amage";
-    final String dbPassword = "amagenepal9";
+    String myNetworkName = "";
+    final String dbSSID = "Amage"; // required ssid
+    final String dbPassword = "amagenepal9"; // required pre-shared key
 
 //    final String dbSSID = "ideaAction";
 //    final String dbPassword = "idea1234";
@@ -52,21 +56,12 @@ public class MainActivity extends AppCompatActivity  {
         unregisterReceiver(wifiReceiver);
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-    }
-
     private void initView() {
 
         Log.d(TAG, "initView: ");
-        textViewWifiResults = (TextView)findViewById(R.id.tvWifiNetworks);
-
+        textViewWifiResults = (TextView) findViewById(R.id.tvWifiNetworks);
+        // getting instance of wifi manager
+        wifiManager = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
     }
 
     @Override
@@ -74,12 +69,76 @@ public class MainActivity extends AppCompatActivity  {
 
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
         initView();
-        // getting instance of wifi manager
-        wifiManager = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+        enableDisableWifi();
+        getPermission();
+//        registerWifiReceiver();
+        // request a scan for access points
+        wifiManager.startScan();
 
-        // enable wifi ,if wifi is disabled by user
+    }
+
+    private void getPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
+                checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
+                        != PackageManager.PERMISSION_GRANTED) {
+
+            requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 0x12345);
+            return;
+
+        } else {
+            registerWifiReceiver();
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) { //funcitno executes when some permission was granted
+//        if (requestCode == 0x12345) {
+//            for (int grantResult : grantResults) {
+//                if (grantResult == PackageManager.PERMISSION_GRANTED) {
+//                    check if permission was already granted and start scanning if yes
+//                    registerWifiReceiver();
+//                    return;
+//                }
+//            }
+//            getPermission(); //ask for permission if not given
+//        }
+        switch (requestCode){
+
+            case 0x12345 :
+
+                if(grantResults[0]==getPackageManager().PERMISSION_GRANTED){
+                    Log.d(TAG, "onRequestPermissionsResult: granted");
+                    registerWifiReceiver();
+                }else{
+                    Log.d(TAG, "onRequestPermissionsResult: permission denied");
+                    Toast.makeText(this,"Permission Denied",Toast.LENGTH_SHORT).show();
+                    getPermission();
+                }
+                break;
+
+            default :
+                super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+                break;
+        }
+
+    }
+
+    private void registerWifiReceiver() {
+
+        Log.d(TAG, "registerWifiReceiver: ");
+//          new instance of WifiReceiver
+        wifiReceiver = new WifiReceiver();
+        filter = new IntentFilter();
+        filter.addAction(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION);
+        // call to register the WifiReceiver. Register it on app launch ,
+        // and it gets triggered whenever wifi available list is updated
+        registerReceiver(wifiReceiver, filter);
+
+    }
+
+    private void enableDisableWifi() {
+//          enable wifi ,if wifi is disabled by user
         if (!wifiManager.isWifiEnabled()) {
             Toast.makeText(getApplicationContext(),
                     "wifi is disabled ! enabling it", Toast.LENGTH_LONG).show();
@@ -89,26 +148,9 @@ public class MainActivity extends AppCompatActivity  {
             Toast.makeText(getApplicationContext(),
                     "wifi enabled", Toast.LENGTH_LONG).show();
         }
-
-        // new instance of wifiReceiver
-        wifiReceiver = new WifiReceiver();
-        // define filter and action for dynamic registration of broadcast receicer i.e. wifiReceiver
-        registerReceiverIntentFilter();
-        // call to register the wifireceiver. Register it on app launch ,
-        // and it gets triggered whenever wifi available list is updated
-        registerReceiver(wifiReceiver,filter);
-        // request a scan for access points
-        wifiManager.startScan();
-
-    }
-    // dynamic registration of broadcast receiver for WifiManager
-    private void registerReceiverIntentFilter(){
-        filter = new IntentFilter();
-        filter.addAction(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION);
     }
 
-
-    public class WifiReceiver extends BroadcastReceiver{
+    public class WifiReceiver extends BroadcastReceiver {
 
         // to save the configuration of wifi. i.e. SSID and password
         final WifiConfiguration conf = new WifiConfiguration();
@@ -116,16 +158,26 @@ public class MainActivity extends AppCompatActivity  {
         @Override
         public void onReceive(Context context, Intent intent) {
 
+            Log.d(TAG, "onReceive: ");
+            displaySSIDList();
+            addWifiConfiguration();
+            connectToSSID();
+
+        }
+
+        private void displaySSIDList() {
+
+            Log.d(TAG, "displaySSIDList: ");
             // to append the values to textview
             stringBuilder = new StringBuilder();
             // get the list of available wifi networks
             scanList = wifiManager.getScanResults();
 
-            Log.d(TAG, "onReceive: scanList : " +"\n"+ scanList );
+            Log.d(TAG, "onReceive: scanList : " + "\n" + scanList);
             stringBuilder.append("\n  Number Of Wifi connections :" + " " + scanList.size() + "\n\n");
 
             for (int i = 0; i < scanList.size(); i++) {
-                Log.d(TAG, "onReceive: wifi details : " + scanList.get(i).SSID.toString()+"\n");
+                Log.d(TAG, "onReceive: wifi details : " + scanList.get(i).SSID.toString() + "\n");
 
                 stringBuilder.append(new Integer(i + 1).toString() + ". ");
                 stringBuilder.append((scanList.get(i).SSID).toString());
@@ -140,7 +192,7 @@ public class MainActivity extends AppCompatActivity  {
                     // get the SSID which matches the required SSID
                     myNetworkName = scanList.get(i).SSID.toString();
 
-                    Log.d(TAG, "onReceive: "+ dbSSID);
+                    Log.d(TAG, "onReceive: " + dbSSID);
 
                 }
 
@@ -148,11 +200,15 @@ public class MainActivity extends AppCompatActivity  {
             // add the network ID's to textview
             textViewWifiResults.setText(stringBuilder);
 
-            // add required network name to wifi configuration
+        }
+
+        private void addWifiConfiguration() {
+
+//           add required network name to wifi configuration
             conf.SSID = "\"" + myNetworkName + "\"";
             Log.d(TAG, "getWifiNetworksList: conf" + conf.SSID.toString());
             conf.status = WifiConfiguration.Status.ENABLED;
-            //Open System authentication (required for WPA/WPA2)
+//             Open System authentication (required for WPA/WPA2)
             conf.allowedAuthAlgorithms.set(WifiConfiguration.AuthAlgorithm.OPEN);
 //              RSN -> WPA2/IEEE 802.11i
 //              WPA -> WPA/IEEE 802.11i/D3.0
@@ -166,8 +222,6 @@ public class MainActivity extends AppCompatActivity  {
             conf.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_EAP);
 //                int	CCMP
 //                AES in Counter mode with CBC-MAC [RFC 3610, IEEE 802.11i/D7.0]
-//                int	NONE
-//                Use only Group keys (deprecated)
 //                int	TKIP
 //                Temporal Key Integrity Protocol [IEEE 802.11i/D7.0]
             conf.allowedPairwiseCiphers.set(WifiConfiguration.PairwiseCipher.CCMP);
@@ -179,32 +233,35 @@ public class MainActivity extends AppCompatActivity  {
             conf.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.CCMP);
             conf.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.TKIP);
 
-            // add preshared key to wifi configuration
-            conf.preSharedKey = "\""+ dbPassword +"\"";
-            // pass the saved configuration to wifimanager network.
+//              add preshared key to wifi configuration
+            conf.preSharedKey = "\"" + dbPassword + "\"";
+//              pass the saved configuration to wifimanager network.
             wifiManager.addNetwork(conf);
-            // no need to call wifimanager.saveConfiguration. it is deprecated. config is automatically saved
-            Log.d(TAG, "connectToWifi: conf.ssid"+ conf.SSID);
+//              no need to call wifimanager.saveConfiguration. it is deprecated. config is automatically saved
+            Log.d(TAG, "connectToWifi: conf.ssid" + conf.SSID);
+        }
+
+        private void connectToSSID() {
 
             // disconnect previously connected wifi ,and connect to amage(required)
-            if(conf.SSID != null && conf.SSID.equals("\"" + dbSSID + "\"") ) {
+            if (conf.SSID != null && conf.SSID.equals("\"" + dbSSID + "\"")) {
                 // disconnect from currently connected SSID
-                if(firstTimeDisconnect) {
+                if (firstTimeDisconnect) {
                     // false because disconnect only during the app launch ,not after that
                     firstTimeDisconnect = false;
                     //disconnects from current network
                     Boolean disconnect = wifiManager.disconnect();
-                    Log.d(TAG, "getWifiNetworksList: disconnect :"+ disconnect );
+                    Log.d(TAG, "getWifiNetworksList: disconnect :" + disconnect);
 
                 }
                 // enables and connects to the wifi with the conf.networkId (required networkId)
                 Boolean enableNetwork = wifiManager.enableNetwork(conf.networkId, true);
-                Log.d(TAG, "onReceive: enable network"+enableNetwork);
+                Log.d(TAG, "onReceive: enable network" + enableNetwork);
 
-//                     if networkID != -1 , it is success .it will return true
+//                  if networkID != -1 , it is success .it will return true
 
                 // reconnect now to the required network
-                if(firstTimeReconnect) {
+                if (firstTimeReconnect) {
                     // false because disconnect and reconnect only during the app launch ,not after that
                     firstTimeReconnect = false;
                     //reconnects to new enabled network
@@ -213,10 +270,11 @@ public class MainActivity extends AppCompatActivity  {
                 }
 
             }
-
-
         }
+
+
     }
+
 
 }
 
